@@ -51,7 +51,12 @@ func TestGlobalFlagsCount(t *testing.T) {
 	flag.String("global2", "default-global2", "Description about global2")
 	Parse()
 
-	total := numOfGlobalFlags()
+	total := 0
+	flag.VisitAll(func(flag *flag.Flag) {
+		total++
+	})
+
+	//total := numOfGlobalFlags()
 	if total != 2 {
 		t.Error("total number of global flags are expected to be 2, found %v", total)
 	}
@@ -131,7 +136,7 @@ func TestAdditionalCommandArgs(t *testing.T) {
 	c1 := &testCmd1{}
 	On("command1", "", c1, []string{})
 	Parse()
-	if len(args) < 1 || args[0] != "somearg" {
+	if len(Default.args) < 1 || Default.args[0] != "somearg" {
 		t.Error("additional command 'somearg' is expected, but can't be found")
 	}
 }
