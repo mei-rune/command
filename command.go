@@ -104,13 +104,18 @@ func (self *Commands) Usage() {
 }
 
 func (self *Commands) subcommandUsage(subcmd *cmdInstance) {
-	fmt.Fprintf(os.Stderr, "Usage of %s %s:\n", self.program, subcmd.name)
+	fmt.Fprintf(os.Stderr, "%s\r\n", subcmd.desc)
 	// should only output sub command flags, ignore h flag.
-	fs := self.matchingCmd.command.Flags(flag.NewFlagSet(subcmd.name, flag.ContinueOnError))
-	fs.PrintDefaults()
-	if len(subcmd.requiredFlags) > 0 {
-		fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
-		fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(subcmd.requiredFlags, ", "))
+	fs := subcmd.command.Flags(flag.NewFlagSet(subcmd.name, flag.ContinueOnError))
+	flagCount := 0
+	fs.VisitAll(func(flag *flag.Flag) { flagCount++ })
+	if flagCount > 0 {
+		fmt.Fprintf(os.Stderr, "Usage of %s %s:\n", self.program, subcmd.name)
+		fs.PrintDefaults()
+		if len(subcmd.requiredFlags) > 0 {
+			fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
+			fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(subcmd.requiredFlags, ", "))
+		}
 	}
 }
 
@@ -141,10 +146,17 @@ func (self *Commands) Parse(args []string) {
 	}
 
 	fs := subcmd.command.Flags(flag.NewFlagSet(name, flag.ExitOnError))
-	fs.BoolVar(&self.flagHelp, "h", false, "")
+	// fs.BoolVar(&self.flagHelp, "h", false, "")
+	// fs.BoolVar(&self.flagHelp, "?", false, "")
+	// fs.BoolVar(&self.flagHelp, "help", false, "")
+	// fs.BoolVar(&self.flagHelp, "-help", false, "")
+
+	self.matchingCmd = subcmd
+	fs.Usage = func() {
+		self.subcommandUsage(subcmd)
+	}
 	fs.Parse(args[1:])
 	self.args = fs.Args()
-	self.matchingCmd = subcmd
 
 	// Check for required flags.
 	flagMap := make(map[string]bool)
@@ -189,6 +201,7 @@ func Usage() {
 }
 
 func Parse() {
+	flag.Usage = Default.Usage
 	flag.Parse()
 	Default.Parse(flag.Args())
 }
