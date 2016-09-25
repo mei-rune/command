@@ -161,8 +161,9 @@ func (cmd *testCmd1) Flags(fs *flag.FlagSet) *flag.FlagSet {
 }
 
 // Sets the run flag.
-func (cmd *testCmd1) Run(args []string) {
+func (cmd *testCmd1) Run(args []string) error {
 	cmd.run = true
+	return nil
 }
 
 // testCmd2 is a test sub command.
@@ -179,6 +180,7 @@ func (cmd *testCmd2) Flags(fs *flag.FlagSet) *flag.FlagSet {
 }
 
 // Sets the run flag.
-func (cmd *testCmd2) Run(args []string) {
+func (cmd *testCmd2) Run(args []string) error {
 	cmd.run = true
+	return nil
 }

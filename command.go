@@ -29,7 +29,7 @@ import (
 // requirements.
 type Cmd interface {
 	Flags(*flag.FlagSet) *flag.FlagSet
-	Run(args []string)
+	Run(args []string) error
 }
 
 type Commands struct {
@@ -180,7 +180,21 @@ func (self *Commands) Run() {
 			self.subcommandUsage(self.matchingCmd)
 			return
 		}
-		self.matchingCmd.command.Run(self.args)
+		if err := self.matchingCmd.command.Run(self.args); err != nil {
+			var code = -1
+			var help = false
+			if e, ok := err.(*Error); ok {
+				code = e.Code
+				help = e.Help
+			}
+
+			fmt.Println(err)
+			if help {
+				self.subcommandUsage(self.matchingCmd)
+			}
+			os.Exit(code)
+			return
+		}
 	}
 }
 
@@ -213,4 +227,14 @@ func Run() {
 func ParseAndRun() {
 	Parse()
 	Run()
+}
+
+type Error struct {
+	Code    int
+	Message string
+	Help    bool
+}
+
+func (e *Error) Error() string {
+	return e.Message
 }
