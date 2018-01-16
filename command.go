@@ -20,9 +20,25 @@ package command
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
+
+var StdOutput io.Writer = os.Stdout
+var StdErr io.Writer = os.Stderr
+
+func Println(args ...interface{}) {
+	fmt.Fprintln(StdOutput, args...)
+}
+
+func Printf(msg string, args ...interface{}) {
+	fmt.Fprintf(StdOutput, msg, args...)
+}
+
+func ErrOutput(msg string, args ...interface{}) {
+	fmt.Fprintf(StdErr, msg, args...)
+}
 
 // Cmd represents a sub command, allowing to define subcommand
 // flags and runnable to run once arguments match the subcommand
@@ -188,7 +204,7 @@ func (self *Commands) Run() {
 				help = e.Help
 			}
 
-			fmt.Println(err)
+			ErrOutput(err.Error())
 			if help {
 				self.subcommandUsage(self.matchingCmd)
 			}
