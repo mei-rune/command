@@ -38,6 +38,7 @@ func Printf(msg string, args ...interface{}) {
 
 func ErrOutput(msg string, args ...interface{}) {
 	fmt.Fprintf(StdErr, msg, args...)
+	fmt.Fprintln(StdErr, "")
 }
 
 // Cmd represents a sub command, allowing to define subcommand
@@ -204,7 +205,7 @@ func (self *Commands) Run() {
 				help = e.Help
 			}
 
-			ErrOutput(err.Error())
+			ErrOutput("FATAL: %s", err.Error())
 			if help {
 				self.subcommandUsage(self.matchingCmd)
 			}
