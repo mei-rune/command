@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 )
 
 var StdOutput io.Writer = os.Stdout
@@ -57,7 +56,7 @@ type Commands struct {
 	flags *flag.FlagSet
 
 	// A map of all of the registered sub-commands.
-	cmds map[string]*cmdInstance
+	list []*cmdInstance
 
 	// Matching subcommand.
 	matchingCmd *cmdInstance
@@ -71,68 +70,64 @@ type Commands struct {
 }
 
 func New(program string, flags *flag.FlagSet) *Commands {
-	return &Commands{program: program, flags: flags, cmds: map[string]*cmdInstance{}}
+	return &Commands{program: program, flags: flags}
 }
 
 type cmdInstance struct {
 	name          string
-	desc          string
+	description   string
 	command       Cmd
 	requiredFlags []string
 }
 
 // Registers a Cmd for the provided sub-command name. E.g. name is the
 // `status` in `git status`.
-func (self *Commands) On(name, description string, command Cmd, requiredFlags []string) {
-	self.cmds[name] = &cmdInstance{
+func (c *Commands) On(name, description string, command Cmd, requiredFlags []string) {
+	c.list = append(c.list, &cmdInstance{
 		name:          name,
-		desc:          description,
+		description:   description,
 		command:       command,
 		requiredFlags: requiredFlags,
-	}
+	})
 }
 
 // Prints the usage.
-func (self *Commands) Usage() {
-	if len(self.cmds) == 0 {
+func (c *Commands) Usage() {
+	if len(c.list) == 0 {
 		// no subcommands
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", self.program)
-		self.flags.PrintDefaults()
+		fmt.Fprintf(StdErr, "使用方法: %s [选项]\n", c.program)
+		c.flags.PrintDefaults()
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "Usage: %s <command>\n\n", self.program)
-	fmt.Fprintf(os.Stderr, "where <command> is one of:\n")
-	for name, subcmd := range self.cmds {
-		fmt.Fprintf(os.Stderr, "  %-15s %s\n", name, subcmd.desc)
+	fmt.Fprintf(StdErr, "使用方法: %s [选项] 子命令 [选项] \n\n", c.program)
+	fmt.Fprintf(StdErr, "子命令列表:\n")
+	for _, subcmd := range c.list {
+		fmt.Fprintf(StdErr, "  %-15s %s\n", subcmd.name, subcmd.description)
 	}
 
 	// Returns the total number of globally registered flags.
 	count := 0
-	self.flags.VisitAll(func(flag *flag.Flag) {
+	c.flags.VisitAll(func(flag *flag.Flag) {
 		count++
 	})
 
 	if count > 0 {
-		fmt.Fprintf(os.Stderr, "\navailable flags:\n")
-		self.flags.PrintDefaults()
+		fmt.Fprintf(StdErr, "\n选项:\n")
+		c.flags.PrintDefaults()
 	}
-	fmt.Fprintf(os.Stderr, "\n%s <command> -h for subcommand help\n", self.program)
+	fmt.Fprintf(StdErr, "\n查看子命令的帮助: %s 子命令 -h\n", c.program)
 }
 
-func (self *Commands) subcommandUsage(subcmd *cmdInstance) {
-	fmt.Fprintf(os.Stderr, "%s\r\n", subcmd.desc)
+func (c *Commands) SubcommandUsage(subcmd *cmdInstance) {
+	fmt.Fprintf(StdErr, "%s\r\n", subcmd.description)
 	// should only output sub command flags, ignore h flag.
 	fs := subcmd.command.Flags(flag.NewFlagSet(subcmd.name, flag.ContinueOnError))
 	flagCount := 0
 	fs.VisitAll(func(flag *flag.Flag) { flagCount++ })
 	if flagCount > 0 {
-		fmt.Fprintf(os.Stderr, "Usage of %s %s:\n", self.program, subcmd.name)
+		fmt.Fprintf(StdErr, "使用方法: %s %s [选项]\n", c.program, subcmd.name)
 		fs.PrintDefaults()
-		if len(subcmd.requiredFlags) > 0 {
-			fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
-			fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(subcmd.requiredFlags, ", "))
-		}
 	}
 }
 
@@ -143,37 +138,43 @@ func (self *Commands) subcommandUsage(subcmd *cmdInstance) {
 // A usage with flag defaults will be printed if provided arguments
 // don't match the configuration.
 // Global flags are accessible once Parse executes.
-func (self *Commands) Parse(args []string) {
+func (c *Commands) Parse(args []string) {
 	// if there are no subcommands registered,
 	// return immediately
-	if len(self.cmds) < 1 {
+	if len(c.list) < 1 {
 		return
 	}
 
 	if len(args) < 1 {
-		self.Usage()
+		c.Usage()
 		os.Exit(1)
 	}
-
 	name := args[0]
-	subcmd, ok := self.cmds[name]
-	if !ok {
-		self.Usage()
+	var subcmd *cmdInstance
+	for _, sub := range c.list {
+		if sub.name == name {
+			subcmd = sub
+			break
+		}
+	}
+	if subcmd == nil {
+		c.Usage()
 		os.Exit(1)
 	}
 
-	fs := subcmd.command.Flags(flag.NewFlagSet(name, flag.ExitOnError))
-	// fs.BoolVar(&self.flagHelp, "h", false, "")
-	// fs.BoolVar(&self.flagHelp, "?", false, "")
-	// fs.BoolVar(&self.flagHelp, "help", false, "")
-	// fs.BoolVar(&self.flagHelp, "-help", false, "")
+	fs := flag.NewFlagSet(name, flag.ExitOnError)
+	fs = subcmd.command.Flags(fs)
+	fs.BoolVar(&c.flagHelp, "h", false, "")
+	fs.BoolVar(&c.flagHelp, "?", false, "")
+	fs.BoolVar(&c.flagHelp, "help", false, "")
+	// fs.BoolVar(&c.flagHelp, "-help", false, "")
 
-	self.matchingCmd = subcmd
+	c.matchingCmd = subcmd
 	fs.Usage = func() {
-		self.subcommandUsage(subcmd)
+		c.SubcommandUsage(subcmd)
 	}
 	fs.Parse(args[1:])
-	self.args = fs.Args()
+	c.args = fs.Args()
 
 	// Check for required flags.
 	flagMap := make(map[string]bool)
@@ -184,20 +185,21 @@ func (self *Commands) Parse(args []string) {
 		delete(flagMap, f.Name)
 	})
 	if len(flagMap) > 0 {
-		self.subcommandUsage(self.matchingCmd)
+		c.SubcommandUsage(c.matchingCmd)
 		os.Exit(1)
 	}
 }
 
 // Runs the subcommand's runnable. If there is no subcommand
 // registered, it silently returns.
-func (self *Commands) Run() {
-	if self.matchingCmd != nil {
-		if self.flagHelp {
-			self.subcommandUsage(self.matchingCmd)
+func (c *Commands) Run() {
+	if c.matchingCmd != nil {
+		if c.flagHelp {
+			c.SubcommandUsage(c.matchingCmd)
 			return
 		}
-		if err := self.matchingCmd.command.Run(self.args); err != nil {
+
+		if err := c.matchingCmd.command.Run(c.args); err != nil {
 			var code = -1
 			var help = false
 			if e, ok := err.(*Error); ok {
@@ -207,7 +209,7 @@ func (self *Commands) Run() {
 
 			ErrOutput("FATAL: %s", err.Error())
 			if help {
-				self.subcommandUsage(self.matchingCmd)
+				c.SubcommandUsage(c.matchingCmd)
 			}
 			os.Exit(code)
 			return
@@ -216,9 +218,9 @@ func (self *Commands) Run() {
 }
 
 // Parses flags and run's matching subcommand's runnable.
-func (self *Commands) ParseAndRun(args []string) {
-	self.Parse(args)
-	self.Run()
+func (c *Commands) ParseAndRun(args []string) {
+	c.Parse(args)
+	c.Run()
 }
 
 var Default = New(os.Args[0], flag.CommandLine)

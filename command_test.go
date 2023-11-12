@@ -58,7 +58,7 @@ func TestGlobalFlagsCount(t *testing.T) {
 
 	//total := numOfGlobalFlags()
 	if total != 2 {
-		t.Error("total number of global flags are expected to be 2, found %v", total)
+		t.Errorf("total number of global flags are expected to be 2, found %v", total)
 	}
 }
 
@@ -143,6 +143,7 @@ func TestAdditionalCommandArgs(t *testing.T) {
 
 // Resets os.Args and the default flag set.
 func resetForTesting(args ...string) {
+	Default.list = nil
 	os.Args = append([]string{"cmd"}, args...)
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 }
