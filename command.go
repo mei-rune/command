@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"errors"
 )
 
 var StdOutput io.Writer = os.Stdout
@@ -83,6 +84,11 @@ type cmdInstance struct {
 // Registers a Cmd for the provided sub-command name. E.g. name is the
 // `status` in `git status`.
 func (c *Commands) On(name, description string, command Cmd, requiredFlags []string) {
+	for _, subcmd := range c.list {
+		if subcmd.name == name {
+			panic(errors.New("命令 '"+name+"' 已存在"))
+		}
+	}
 	c.list = append(c.list, &cmdInstance{
 		name:          name,
 		description:   description,
