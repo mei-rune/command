@@ -154,7 +154,9 @@ func (c *Commands) Parse(args []string) {
 	if len(args) < 1 {
 		c.Usage()
 		os.Exit(1)
+		return
 	}
+	
 	name := args[0]
 	var subcmd *cmdInstance
 	for _, sub := range c.list {
@@ -239,10 +241,16 @@ func Usage() {
 	Default.Usage()
 }
 
+var DefaultCommandName string
+
 func Parse() {
 	flag.Usage = Default.Usage
 	flag.Parse()
-	Default.Parse(flag.Args())
+	args := flag.Args()
+	if len(args) == 0 {
+		args = []string{DefaultCommandName}
+	}
+	Default.Parse(args)
 }
 
 func Run() {
