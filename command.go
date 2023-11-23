@@ -243,12 +243,22 @@ func Usage() {
 
 var DefaultCommandName string
 
+
+var defaultParsePostHook func()
+
+func SetDefaultParsePostHook(hook func()) {
+	defaultParsePostHook = hook
+}
+
 func Parse() {
 	flag.Usage = Default.Usage
 	flag.Parse()
 	args := flag.Args()
 	if len(args) == 0 {
 		args = []string{DefaultCommandName}
+	}
+	if defaultParsePostHook != nil {
+		defaultParsePostHook()
 	}
 	Default.Parse(args)
 }
