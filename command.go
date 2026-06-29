@@ -101,15 +101,15 @@ func (c *Commands) On(name, description string, command Cmd, requiredFlags []str
 func (c *Commands) Usage() {
 	if len(c.list) == 0 {
 		// no subcommands
-		fmt.Fprintf(StdErr, "使用方法: %s [选项]\n", c.program)
+		ErrOutput("使用方法: %s [选项]", c.program)
 		c.flags.PrintDefaults()
 		return
 	}
 
-	fmt.Fprintf(StdErr, "使用方法: %s [选项] 子命令 [选项] \n\n", c.program)
-	fmt.Fprintf(StdErr, "子命令列表:\n")
+	ErrOutput("使用方法: %s [选项] 子命令 [选项] \n", c.program)
+	ErrOutput("子命令列表:")
 	for _, subcmd := range c.list {
-		fmt.Fprintf(StdErr, "  %-15s %s\n", subcmd.name, subcmd.description)
+		ErrOutput("  %-15s %s", subcmd.name, subcmd.description)
 	}
 
 	// Returns the total number of globally registered flags.
@@ -119,20 +119,25 @@ func (c *Commands) Usage() {
 	})
 
 	if count > 0 {
-		fmt.Fprintf(StdErr, "\n选项:\n")
+		ErrOutput("\n选项:")
 		c.flags.PrintDefaults()
 	}
-	fmt.Fprintf(StdErr, "\n查看子命令的帮助: %s 子命令 -h\n", c.program)
+	ErrOutput("\n查看子命令的帮助: %s 子命令 -h", c.program)
 }
 
 func (c *Commands) SubcommandUsage(subcmd *cmdInstance) {
-	fmt.Fprintf(StdErr, "%s\r\n", subcmd.description)
+	if u, ok := subcmd.command.(interface{ Usage() }); ok {
+		u.Usage()
+		return
+	}
+
+	ErrOutput("%s", subcmd.description)
 	// should only output sub command flags, ignore h flag.
 	fs := subcmd.command.Flags(flag.NewFlagSet(subcmd.name, flag.ContinueOnError))
 	flagCount := 0
 	fs.VisitAll(func(flag *flag.Flag) { flagCount++ })
 	if flagCount > 0 {
-		fmt.Fprintf(StdErr, "使用方法: %s %s [选项]\n", c.program, subcmd.name)
+		ErrOutput("使用方法: %s %s [选项]", c.program, subcmd.name)
 		fs.PrintDefaults()
 	}
 }
